@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        AWS_ACCOUNT_ID = "788502544103"
+        AWS_ACCOUNT_ID = sh(script: 'aws sts get-caller-identity --query Account --output text', returnStdout: true).trim()
         AWS_DEFAULT_REGION = "ap-south-1"
         IMAGE_REPO_NAME = "node-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
@@ -15,18 +15,9 @@ pipeline {
     stages {
         stage('Code Checkout') {
             steps {
-                // Replace with your actual Git repository URL
                 git branch: 'main',
-                    url: 'YOUR_GIT_REPO_URL'
-            }
-        }
-        
-        stage('Run Tests') {
-            steps {
-                sh '''
-                    npm install
-                    npm test || true
-                '''
+                    url: 'https://github.com/nainit-virtueinfo/nodejs-app',
+                    credentialsId: 'github-credentials'
             }
         }
         
@@ -69,10 +60,8 @@ pipeline {
         always {
             script {
                 try {
-                    // Get list of images
                     def images = sh(script: 'docker images --format "{{.Repository}}:{{.Tag}}"', returnStdout: true).trim()
                     
-                    // Only attempt to remove if images exist
                     if (images.contains("${env.IMAGE_REPO_NAME}:${env.IMAGE_TAG}")) {
                         sh "docker rmi ${env.IMAGE_REPO_NAME}:${env.IMAGE_TAG}"
                     }
@@ -81,7 +70,6 @@ pipeline {
                         sh "docker rmi ${env.REPOSITORY_URI}:${env.IMAGE_TAG}"
                     }
                     
-                    // Clean any dangling images
                     sh "docker image prune -f"
                 } catch (Exception e) {
                     echo "Warning: Cleanup failed but continuing pipeline: ${e.getMessage()}"
